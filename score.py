@@ -56,6 +56,9 @@ def transPredictedEventToMatrix(TestwithPred,poslist): #SVM步骤中产生的Tes
         matrix[i]=[1 if (k in modpos) else (0 if (k in unmodpos) else np.nan) for k in poslist] 
     return pd.DataFrame(matrix).T 
 
+def get_index(lst=None, item=''):
+    return [index for (index,value) in enumerate(lst) if value == item]
+
 def Normal_SHAPE(inlist,windowsize=200,step=5): #采用icSHAPE-pipe的策略，在Windows内，top5%为1，最低5%为0
     """
     inlist                      -- A list of rate scores
@@ -107,18 +110,17 @@ def plotPCA(pcadata,clust_ids,cluser_ratio,outfile):
     clust_ids                     --A list of cluster labels of each reads. e.g [0,0,1,2,0,1,2]
     cluser_ratio                  -- The reads ratio of each cluster.
     outfile                       -- The output figure.
-
     Plot the PCA clustering result 
     """    
-    cluster_color = { 0: '#4daf4a', 1: '#ff7f00', 2: '#f781bf',3:'#0000FF',4:'gray',-1:'black'}
-
+    cluster_color = { 0: 'red', 1: '#FF7F00', 2: '#FF00FF',3:'#0000FF',4:'grey',5:'yellow',-1:'black'}
     fig = plt.figure(figsize = (6,6))
+    ax = fig.add_subplot(111)
     plt.scatter(pcadata['PC1'], pcadata['PC2'], c = [cluster_color[x] for x in clust_ids], s = 20, alpha = 0.50 )
     ax.set_xlabel('PC 1', fontsize = 15)
     ax.set_ylabel('PC 2', fontsize = 15)
     N=len(cluser_ratio)
-    for i in N:
-        ax.text(0.1,0.1,'Cluter{i}: {:.2%}'.format(cluser_ratio[i]),c=cluster_color[i], fontsize = 12, transform=ax.transAxes)
+    for i in range(N):
+        ax.text(0.05,0.95-0.05*i,'Cluter{}: {:.2%}'.format(i,cluser_ratio[i]),c=cluster_color[i], fontsize = 12, transform=ax.transAxes)
     ax.set_aspect('equal', 'box')
     plt.axis('equal')
     plt.savefig(outfile)
@@ -211,7 +213,7 @@ if __name__ == "__main__":
         plotScore(shapescore,poslist,args.output+'.pdf')
         #Write the scores to outfile
         shapescoredit=pd.DataFrame(shapescore,index=poslist,columns=['score'])
-        shapescoredit.fillna('Null').to_csv(args.output,sep='\t')
+        shapescoredit.fillna('Null').to_csv(args.output+'.score',sep='\t')
         print("The mean Reactivity scores were calculated!")
 
 
@@ -237,13 +239,17 @@ if __name__ == "__main__":
 
         # Check the PCA.PDF file and assign the cluster number and method
         N=input("Please check the PCA.pdf file and then assign the Number of Clusers:  ")
+        print(f"Number of Clusers is assigned:{N}!\n")
+
         M=input("Please choose the Clustering method, G for GaussianMixture and D for DBSCAN:  ")
-        assert M in ('G', 'D'), "method should be one of G/D"
+        #assert M in ('G', 'D'), "method should be one of G/D"
+        print(f"The cluser method is assigned:{M}!\n")
+
         if M=='G':
-            clustering =GaussianMixture(n_components =N,covariance_type='full',random_state=1).fit(pca_out)
+            clustering =GaussianMixture(n_components = int(N),covariance_type='full',random_state=1).fit(pca_out)
             cluster_ids=clustering.predict(pca_out).tolist()
         if M=='D':
-            clustering =DBSCAN(eps=0.1, min_samples=N).fit(Fulldata)
+            clustering =DBSCAN(eps=0.1, min_samples=int(N)).fit(pca_out)
             cluster_ids =clustering.labels_.tolist()
 
         #Calculate the scores of each cluster
@@ -251,16 +257,16 @@ if __name__ == "__main__":
         cluser_vect=[]
         cluser_score=[]
         cluser_name=[]
-        for i in range(N):
-            cluser_ratio[i]=cluster_ids.count(i)/len(cluster_ids)
-            cluser_vect[i]=vect.iloc[get_index(cluster_ids,i),:]
-            cluser_score[i]=CalculateSHAPEFromBitvector_nan(cluser_vect[i])
-            cluser_name[i]='Cluster'+str(i+1)
-        
+        for i in range(int(N)):
+            cluser_ratio.append(cluster_ids.count(i)/len(cluster_ids))
+            cluser_vect.append(vect.iloc[get_index(cluster_ids,i),:])
+            cluser_score.append(CalculateSHAPEFromBitvector_nan(cluser_vect[i]))
+            cluser_name.append('Cluster'+str(i+1))
+        print("Scores calculate successfully!")
         #Plot the PCA and Clustering results into PDF
         plotPCA(pca_out,cluster_ids,cluser_ratio,args.output+'.PCA.pdf')
         #Write the scores to outfile
         shapescoredit=pd.DataFrame(cluser_score,index=cluser_name,columns=poslist).T
-        shapescoredit.fillna('Null').to_csv(args.output,sep='\t')
-        print("The Teterogeneity Reactivity scores were calculated!")
+        shapescoredit.fillna('Null').to_csv(args.output+'.scors',sep='\t')
+        print("The heterogeneous reactivity scores were calculated!")
 
