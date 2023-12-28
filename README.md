@@ -2,6 +2,8 @@
 ## Deconvolute the RNA intermediates structure heterogeneity with Nanopore direct RNA sequencing data.
 Nanopore direct RNA sequencing that combined with chemical probing method was used to predict the secondary strucure of long RNA. This pepilne start with the raw fastq reads and fast5 signals of both modified and unmodified samples. Reads selection and One-class SVM were used to predict the modified bases of each selected reads that belong to a specific intermadiate. We transfer the modify profile of every selected reads to a bitvector and cluster the reads into different groups. The reactivity scores of each group, which represent the alternative comformations , were calculated and normalized individually. 
 
+![flow](docs\Figures\Flow.png)
+
 ### The dependent programs to run the analysis:
 - graphmap2(https://github.com/lbcb-sci/graphmap2) or minimap2(https://github.com/lh3/minimap2) to align the Nanopore reads to reference.
 - samtools(https://www.htslib.org) to deal with the sam/bam files.
