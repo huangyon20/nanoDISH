@@ -7,6 +7,7 @@ Nanopore direct RNA sequencing that combined with chemical probing method was us
 - samtools(https://www.htslib.org) to deal with the sam/bam files.
 - nanopolish(https://github.com/jts/nanopolish)
 
+
 ### The dependent Python packages:
 - os
 - argparse
