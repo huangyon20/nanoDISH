@@ -47,9 +47,10 @@ python SVM.py -m Mod/mod_multi/TPP_340.event -u Unmod/Unmod_multi/TPP_340.event 
 
 step4: Calculate the reactivity scores.
 --------------------------------------------
-Without thinking about the 
+Based on the mod_profile file output in the step3, we calculate the modify-ratio for each base. Then use the Winsorization algorithm to normalize the ratios to reactivity scores along the full length of selected intermediate. The reactivity scores can be calculated generally as an average(m=mean), or as individual values taking into account alternative conformations(m=heter). 
 ```
 python score.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_mean -r TPP.fa -m mean
 python score.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_heter -r TPP.fa -m heter
 ```
+During the running of the program, the user needs to view the temporarily produced PCA file and specify the number and method of clustering.
 
