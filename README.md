@@ -36,8 +36,8 @@ step 2: Pick the intermidiates.
 In this step, the reads in the cwere selected according to the mapping positions on refenrence. -i: the collapsed event file from the output of step 1. -s: the start mapping position. Reads were excluded if the start mapping postion is less than s. This limitation factor can exclude the degraded reads. -e: the end mapping position; -b: the allowed bias of end mapping positions. e.g if e=100 and b=20, which means the reads whose end mapping position ranged in 100-120 were specified to one intermediate.  If users want to select all the intermediates that shorter than the specific intermediate at the same time, -m should be used. e.g if s=30,e=100,b=20 and -m, which means the reads whose end mapping position ranged in (30-40,40-60,60-80,80-100,100-120) were specified to 5 intermediate individually.
 
 ```
-python picksize.py -i Mod/mod.collapsed.event  -g TPP -d Mod/mod_multi -s 30 -e 340 -b 20 -m
-python picksize.py -i Unmod/Unmod.collapsed.event  -g TPP -d Unmod/Unmod_multi -s 30 -e 340 -b 20 -m
+python scoreIntermediate.py -i Mod/mod.collapsed.event  -g TPP -d Mod/mod_multi -s 30 -e 340 -b 20 -m
+python scoreIntermediate.py -i Unmod/Unmod.collapsed.event  -g TPP -d Unmod/Unmod_multi -s 30 -e 340 -b 20 -m
 ```
 
 step3: Predict modified bases.
@@ -45,15 +45,15 @@ step3: Predict modified bases.
 In this step, The intermediate event files from both modified and unmodified group were choosen to predict the modified bases using SVM. The output files (*.static and *.Mod_profile in csv format )were written to the path of --Mod_Event. If users wants to change the usage of SVM, there are 4 parameters available. --columns, 4: current, 5: current stdv, 6: dwell time, the default is [4,5,6]; --kernel, default is (rbf); --gamma, default is (scale); --nu, default is (0.01).
 
 ```
-python SVM.py -m Mod/mod_multi/TPP_340.event -u Unmod/Unmod_multi/TPP_340.event -r ref.fasta -s TPP
+python predictModbase.py -m Mod/mod_multi/TPP_340.event -u Unmod/Unmod_multi/TPP_340.event -l 340 -b 20 
 ```
 
 step4: Calculate the reactivity scores.
 --------------------------------------------
 Based on the mod_profile file output in the step3, we calculate the modify-ratio for each base. Then use the Winsorization algorithm to normalize the ratios to reactivity scores along the full length of selected intermediate. The reactivity scores can be calculated generally as an average(m=mean), or as individual values taking into account alternative conformations(m=heter). 
 ```
-python score.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_mean -r TPP.fa -m mean
-python score.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_heter -r TPP.fa -m heter
+python scoreIntermediate.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_mean -l 340 -b 20 -m mean
+python scoreIntermediate.py -i Mod/mod_multi/TPP_340.event.Mod_Profile -o Mod/mod_multi/TPP_340_heter -l 340 -b 20  -m heter
 ```
 During the running of the program, the user needs to view the temporarily produced PCA file and specify the number and method of clustering.
 
