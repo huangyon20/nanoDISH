@@ -29,6 +29,7 @@ In this step, the reads in fastq format were mapped to reference genome using gr
 ```
 python dataprocessing.py  -r ref.fasta -q mod.fastq   -s mod_fast5   -d Mod   -n mod   --mkindex
 python dataprocessing.py  -r ref.fasta -q unmod.fastq -s unmod_fast5 -d Unmod -n Unmod --mkindex
+
 ```
 
 step 2: Pick the intermidiates. 
