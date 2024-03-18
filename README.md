@@ -37,8 +37,8 @@ step 2: Pick the intermidiates.
 In this step, the reads in the cwere selected according to the mapping positions on refenrence. -i: the collapsed event file from the output of step 1. -s: the start mapping position. Reads were excluded if the start mapping postion is less than s. This limitation factor can exclude the degraded reads. -e: the end mapping position; -b: the allowed bias of end mapping positions. e.g if e=100 and b=20, which means the reads whose end mapping position ranged in 100-120 were specified to one intermediate.  If users want to select all the intermediates that shorter than the specific intermediate at the same time, -m should be used. e.g if s=30,e=100,b=20 and -m, which means the reads whose end mapping position ranged in (30-40,40-60,60-80,80-100,100-120) were specified to 5 intermediate individually.
 
 ```
-python scoreIntermediate.py -i Mod/mod.collapsed.event  -g TPP -d Mod/mod_multi -s 30 -e 340 -b 20 -m
-python scoreIntermediate.py -i Unmod/Unmod.collapsed.event  -g TPP -d Unmod/Unmod_multi -s 30 -e 340 -b 20 -m
+python pickIntermediate.py -i Mod/mod.collapsed.event  -g TPP -d Mod/mod_multi -s 30 -e 340 -b 20 -m
+python pickIntermediate.py -i Unmod/Unmod.collapsed.event  -g TPP -d Unmod/Unmod_multi -s 30 -e 340 -b 20 -m
 ```
 
 step3: Predict modified bases.
