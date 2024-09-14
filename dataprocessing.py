@@ -65,7 +65,7 @@ def args():
     parser.add_argument("-n", "--output_name",  type=str, default='out',    help='prefix of the output files，the default is (out).')
     parser.add_argument("-m", "--method",     type=str, default='graphmap2', help='The mapping methods, graphmap2 or minimap2. the default is (graphmap2).')
     parser.add_argument("-t", "--thread",    type=int, default=5,           help='the default is (5) .')
-    parser.add_argument("-i", "--mkindex",  action='store_true', default=False, help='Making index of the fast5 is very slow, delete the parameter after the first run..')
+    parser.add_argument("-i", "--mkindex",  action='store_true', default=True, help='use -i to overpass the indexing of fast5 after the first run.')
     args = parser.parse_args()
     return args
 

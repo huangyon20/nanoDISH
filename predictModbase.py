@@ -7,30 +7,6 @@ from collections import Counter
 pd.options.mode.chained_assignment = None
 
 
-def load_fasta(seqFn):
-    """
-    seqFn               -- Fasta file
-    Return:
-        {tid1: seq1, ...} 
-    """
-    fasta = {}
-    cur_tid = ''
-    cur_seq = ''
-    
-    for line in open(seqFn):
-        if line[0] == '>':
-            if cur_seq != '':
-                fasta[cur_tid] = cur_seq
-                cur_seq = ''
-            data = line[1:].split(None, 1)
-            cur_tid = data[0]
-        else:
-            cur_seq += line.rstrip()
-    
-    if cur_seq != '':
-        fasta[cur_tid] = cur_seq
-    return fasta
-
 def SVM(testevent,trainevent,poslist,KN,GA,NU,cols):
     Staticfile={}
     TestwithPred=pd.DataFrame()
@@ -63,14 +39,14 @@ def args():
 
     """ 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--Mod_Event",   type=str, required=True,      help='The Modified collapsed event file from dataprocessing.py and picksize.py.')
-    parser.add_argument("-u", "--Unmod_Event", type=str, required=True,      help='The Unmodified collapsed event file from dataprocessing.py and picksize.py.')
-    parser.add_argument("-l", "--length",   type=int, required=True,      help='The intermidiate length.')
-    parser.add_argument("-b", "--bias",    type=int, required=True, help='The intermidiate length error tolerance, reflecting the resolution of the intermidiates. Reads that 3 terminal mapping position ranged in end~end+bias were grouped as one intermidiate.')
-    parser.add_argument("-c", "--columns",     type=list, default=[4,5,6],   help='the features used for SVM, 4: current, 5: current stdv, 6: dwell time. The default is [4,5,6].')
-    parser.add_argument("-KN", "--kernel",     type=str, default='rbf',      help='the SVM parameter: kernel ，the default is (rbf).')
-    parser.add_argument("-GA", "--gamma",      type=str, default='scale',    help='the SVM parameter: gamma ，the default is (scale).')
-    parser.add_argument("-NU", "--nu",         type=float, default=0.01,     help='the SVM parameter: nu ，the default is (0.01).')
+    parser.add_argument("-m", "--Mod_Event",   type=str, required=True,      help='The Modified collapsed event file.')
+    parser.add_argument("-u", "--Unmod_Event", type=str, required=True,      help='The Unmodified collapsed event file.')
+    parser.add_argument("-l", "--length",      type=int, required=True,      help='The RNA intermidiate length.')
+    parser.add_argument("-b", "--bias",        type=int, default=0,          help='The read length bias. Set the same value with pickintermediate.py, if pickintermediate.py be used.')
+    parser.add_argument("-c", "--columns",     type=int, nargs='+', default=[4,5,6],   help='the features used for SVM, 4: current, 5: current stdv, 6: dwell time. The default is [4,5,6].')
+    parser.add_argument("-KN", "--kernel",     type=str, default='rbf',      help='The SVM parameter: kernel ，the default is (rbf).')
+    parser.add_argument("-GA", "--gamma",      type=float, default=0.01,     help='The SVM parameter: gamma ，the default is (0.01).')
+    parser.add_argument("-NU", "--nu",         type=float, default=0.01,     help='The SVM parameter: nu ，the default is (0.01).')
     args = parser.parse_args()
     return args
 
@@ -90,8 +66,8 @@ if __name__ == "__main__":
     #get the positions of specific sequence 
     poslist=[i for i in range(1,args.length+args.bias+1)]
     # read in the Event files
-    Mod_Event= pd.read_csv(args.Mod_Event,sep='\t',index_col=1)
-    Unmod_Event= pd.read_csv(args.Unmod_Event,sep='\t',index_col=1)
+    Mod_Event= pd.read_csv(args.Mod_Event,sep='\t',index_col=0)
+    Unmod_Event= pd.read_csv(args.Unmod_Event,sep='\t',index_col=0)
     # predict every bases, add the results to the Mod_event file as a new column
     print(args.columns)
     Staticfile,TestwithPred=SVM(Mod_Event,Unmod_Event,poslist,args.kernel,args.gamma,args.nu,args.columns)
@@ -100,5 +76,5 @@ if __name__ == "__main__":
     Pred_static=args.Mod_Event+'.static'
     TestwithPred.to_csv(Pred_event,sep='\t',header=True, index=True)
     out=pd.DataFrame.from_dict(Staticfile, orient='index',columns=['Modifired_NO.','Kmer','Test_NO.','Train_NO.'])
-    out.to_csv(Pred_static,sep='\t',index=True,)
+    out.to_csv(Pred_static,sep='\t',index=True)
 

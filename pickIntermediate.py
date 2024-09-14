@@ -21,7 +21,7 @@ def select_intermidiates_from_event_single(Eventfile,gene,outdir,start,end,bias)
         EndPos=pos[-1]
         StartPos=pos[0]
         if StartPos<start and EndPos>=end and EndPos<=end+bias:
-            i[1].to_csv(outfile,sep='\t',header=False, index=False)
+            i[1].to_csv(outfile,sep='\t',header=False, index=True)
             count+=1
     outfile.close()
     return count
@@ -50,7 +50,7 @@ def select_intermidiates_from_event_multi(Eventfile,gene,outdir,start,end,bias):
         StartPos=pos[0]
         if StartPos<start and EndPos>=start and EndPos<=end+bias:
             x=int(EndPos/bias)
-            i[1].to_csv(outlist[x],sep='\t',header=False, index=False) 
+            i[1].to_csv(outlist[x],sep='\t',header=False, index=True) 
             countlist[x]+=1
     for i in range(n+1):
         outlist[i].close()
@@ -59,17 +59,17 @@ def select_intermidiates_from_event_multi(Eventfile,gene,outdir,start,end,bias):
 
 def args():
     """
-    select RNA intermidiates based on the mapped read's start and end positions on reference
+    Group the reads to different intermidiates based on their mapping positions to the reference. The input and output files are all event file.
 
     """ 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--event",   type=str, required=True,      help='The event file from dataprocessing.py.')
     parser.add_argument("-g", "--gene", type=str, required=True,      help='The specific gene name in the reference.')
     parser.add_argument("-d", "--output_dir",  type=str, required=True,     help='The output file path where to store the selected intermidiates.')
-    parser.add_argument("-s", "--start",   type=int, required=True,      help='The maximal 5 terminal  position of a intermidiate. Reads that 5 terminal mapped beyond the start site were excluded.')
-    parser.add_argument("-e", "--end",    type=int, required=True,  help='The 3 terminal position of a intermidiates. Reads that 3 terminal mapped within the end site were excluded.')
-    parser.add_argument("-b", "--bias",    type=int, required=True, help='The intermidiate length error tolerance, reflecting the resolution of the intermidiates. Reads that 3 terminal mapping position ranged in end~end+bias were grouped as one intermidiate.')
-    parser.add_argument("-m", "--multi",  action='store_true', default=False, help='If the parameter was used, the all intermidiates within the end position were selected parallelly.')
+    parser.add_argument("-s", "--start",   type=int, default=20,      help='The start mapping site. Reads whose 5 terminal digested beyond the start site were excluded.')
+    parser.add_argument("-e", "--end",    type=int, required=True,  help='The end mapping site. Reads whose 3 terminal mapped within the end site were excluded.')
+    parser.add_argument("-b", "--bias",    type=int, required=True, help='The read length bias. Reads whose 3 terminal mapped in end~end+bias sites were included and grouped as one intermidiate.')
+    parser.add_argument("-m", "--multi",  action='store_true', default=False, help='Separate the reads into length continuous groups at the same time.')
 
     args = parser.parse_args()
     return args

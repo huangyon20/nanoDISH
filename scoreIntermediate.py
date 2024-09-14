@@ -7,36 +7,14 @@ pd.options.mode.chained_assignment = None
 import scipy.stats
 from statistics import mean
 from scipy import stats
-
+from collections import Counter
+import umap
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import DBSCAN
 
-def load_fasta(seqFn):
-    """
-    seqFn               -- Fasta file
-    Return dict:
-        {tid1: seq1, ...} 
-    """
-    fasta = {}
-    cur_tid = ''
-    cur_seq = ''
-    
-    for line in open(seqFn):
-        if line[0] == '>':
-            if cur_seq != '':
-                fasta[cur_tid] = cur_seq
-                cur_seq = ''
-            data = line[1:].split(None, 1)
-            cur_tid = data[0]
-        else:
-            cur_seq += line.rstrip()
-    
-    if cur_seq != '':
-        fasta[cur_tid] = cur_seq
-    return fasta
 
-def transPredictedEventToMatrix(TestwithPred,poslist): #SVM步骤中产生的TestwithPred文件含有predict的信号值，1和-1，可以将这些值作为表达矩阵，用于reads按照结构的聚类
+def transPredictedEventToMatrix(TestwithPred,poslist): #SVM步骤中产生的profile文件含有信号值为1和-1，miscalled碱基没有信号值，可以将这些值作为表达矩阵，用于reads按照结构的聚类
     """
     TestwithPred                -- Test event file with the prediction labels. Generated from SVM
     poslist                     -- The position list of reference.
@@ -105,20 +83,20 @@ def plotScore(shapescore,poslist,outfile):
     plt.savefig(outfile)
     plt.close()
 
-def plotPCA(pcadata,clust_ids,samplelabel,cluser_ratio,outfile):
+def plotUMAP(UMAPdata,clust_ids,samplelabel,cluser_ratio,outfile):
     """
-    pcadata                       --The PCA dataframe in which include two columns(PC1 and PC2)
+    UMAPdata                      --The UMAP dataframe in which include two columns(UMAP1 and UMAP2)
     clust_ids                     --A list of cluster labels of each reads. e.g [0,0,1,2,0,1,2]
     cluser_ratio                  -- The reads ratio of each cluster.
     outfile                       -- The output figure.
-    Plot the PCA clustering result 
+    Plot the UMAP clustering result 
     """    
     cluster_color = { 0: 'red', 1: '#FF7F00', 2: '#FF00FF',3:'#0000FF',4:'yellow',5:'black'}
     fig = plt.figure(figsize = (6,6))
     ax = fig.add_subplot(111)
-    plt.scatter(pcadata['PC1'], pcadata['PC2'], c = [cluster_color[x]  if x in samplelabel else 'gray' for x in clust_ids], s = 20, alpha = 0.50 )
-    ax.set_xlabel('PC 1', fontsize = 15)
-    ax.set_ylabel('PC 2', fontsize = 15)
+    plt.scatter(UMAPdata['PC1'], UMAPdata['PC2'], c = [cluster_color[x]  if x in samplelabel else 'gray' for x in clust_ids], s = 20, alpha = 0.50 )
+    ax.set_xlabel('UMAP1', fontsize = 15)
+    ax.set_ylabel('UMAP2', fontsize = 15)
     N=len(cluser_ratio)
     for i in range(N):
         ax.text(0.05,0.95-0.05*i,'Cluter{}: {:.2%}'.format(i,cluser_ratio[i]),c=cluster_color[i], fontsize = 12, transform=ax.transAxes)
@@ -168,11 +146,11 @@ def args():
     Calculate and plot the reactivity scores according to different methods
     """ 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--Mod_Profile", type=str, required=True,      help='The Mod_Profile from SVM.py. Each bases are labeled with the modification information.')
+    parser.add_argument("-i", "--Mod_Profile", type=str, required=True,      help='The Mod_Profile from SVM.py. Each bases are labeled with the modification status.')
     parser.add_argument("-o", "--output",      type=str, required=True,      help='The output reactivity score file.')
     parser.add_argument("-m", "--method",      type=str, default='mean',     help='The reactivity score calculating methods. mean: calculate the mean score as one single structure; heter: calculate the alternative comformations separately. The default is (mean).')
-    parser.add_argument("-l", "--length",   type=int, required=True,      help='The intermidiate length.')
-    parser.add_argument("-b", "--bias",    type=int, required=True, help='The intermidiate length error tolerance, reflecting the resolution of the intermidiates. Reads that 3 terminal mapping position ranged in end~end+bias were grouped as one intermidiate.')
+    parser.add_argument("-l", "--length",      type=int, required=True,      help='The intermidiate length.')
+    parser.add_argument("-b", "--bias",        type=int, default=0,          help='The read length bias. Set the same value with pickintermediate.py, if pickintermediate.py be used.')
 
 
     args = parser.parse_args()
@@ -216,7 +194,7 @@ if __name__ == "__main__":
 
     if args.method=='heter':
         
-        #transfer or read the profile to Bitvector
+        #transfer or read the profile to 0-1-NaN Bitvector
         if not os.path.exists(args.output+'.vect'):
             vect=transPredictedEventToMatrix(infile,poslist)
             vect.to_csv(args.output+'.vect',sep='\t',header=True, index=True)
@@ -225,17 +203,17 @@ if __name__ == "__main__":
             vect=pd.read_csv(args.output+'.vect',sep='\t',index_col=0)
             print("The Bitvector was found!\n")
 
-        # PCA
-        pca = PCA(n_components=2)
-        temp_vect=vect.dropna(axis=1,how='all') #exclude the columns that are all None
-        pca_out=pd.DataFrame(pca.fit_transform(temp_vect.fillna(0)),columns = ['PC1', 'PC2'])
+        # Classify reads using UMAP
+        UP = umap(n_components=2)
+        cla_vect=vect.interpolate(limit_area='outside',limit_direction='both',axis=1).fillna(2) # Set the miscalled Bases in the vectors to '2'
+        UP_out=pd.DataFrame(UP.fit_transform(cla_vect),columns = ['UMAP1', 'UMAP2'])
         
-        plt.scatter(pca_out['PC1'], pca_out['PC2'])
-        plt.savefig(args.output+'.PCA.pdf')
+        plt.scatter(UP_out['UMAP1'], UP_out['UMAP2'])
+        plt.savefig(args.output+'.UMAP.pdf')
         plt.close()
 
-        # Check the PCA.PDF file and assign the cluster number and method
-        N=input("Please check the PCA.pdf file and then assign the Number of Clusers:  ")
+        # Check the UMAP.PDF file and assign the cluster number and method
+        N=input("Please check the UMAP.pdf file and then assign the Number of Clusers:  ")
         print(f"Number of Clusers is assigned:{N}!\n")
 
         M=input("Please choose the Clustering method, G for GaussianMixture and D for DBSCAN:  ")
@@ -243,15 +221,15 @@ if __name__ == "__main__":
         print(f"The cluser method is assigned:{M}!\n")
 
         if M=='G':
-            clustering =GaussianMixture(n_components = int(N),covariance_type='full',random_state=1).fit(pca_out)
-            cluster_ids=clustering.predict(pca_out).tolist()
-            lists=Counter(TPP_clust_ids).most_common(int(N))
+            clustering =GaussianMixture(n_components = int(N),covariance_type='full',random_state=1).fit(UP_out)
+            cluster_ids=clustering.predict(UP_out).tolist()
+            lists=Counter(cluster_ids).most_common(int(N))
             samplelabel={int(k):v for k, v in lists}.keys() 
 
         if M=='D':
-            clustering =DBSCAN(eps=0.1, min_samples=int(N)).fit(pca_out)
+            clustering =DBSCAN(eps=0.1, min_samples=int(N)).fit(UP_out)
             cluster_ids =clustering.labels_.tolist()
-            lists=Counter(TPPclustering.labels_).most_common(int(N))
+            lists=Counter(cluster_ids).most_common(int(N))
             samplelabel={int(k):v for k, v in lists}.keys() 
 
         #Calculate the scores of each cluster
@@ -266,7 +244,7 @@ if __name__ == "__main__":
             cluser_name.append('Cluster'+str(i+1))
         print("Scores calculate successfully!")
         #Plot the PCA and Clustering results into PDF
-        plotPCA(pca_out,cluster_ids,samplelabel,cluser_ratio,args.output+'.PCA.pdf')
+        plotUMAP(UP_out,cluster_ids,samplelabel,cluser_ratio,args.output+'.UMAP.pdf')
         #Write the scores to outfile
         shapescoredit=pd.DataFrame(cluser_score,index=cluser_name,columns=poslist).T
         shapescoredit.fillna('Null').to_csv(args.output+'.scors',sep='\t')
