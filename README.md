@@ -3,7 +3,7 @@
 Nanopore direct RNA sequencing that integrated with chemical probing method was used to determine the secondary strucure of long RNA. Chemical probing reagents, such as NAI-N3 and Aclm, preferentially modified the open RNA bases and alter the current signals, resulting in miscalled bases or correctly called bases but with current signal outliers compared with unmodified bases. We used machine learning models to obtain the modification status of each bases on reads from the Nanopore sequencing data and developed this pipeline to analyze RNA structural heterogeneity.
 NanoDISH consists of four parts: process the signal data, select reads by their length, obtain the modification profile of each modified reads, classify reads and calculate the reactivaty scores. The modification profiles were converted into 0-1-2 digital vectors and classified using Gaussian Mixture or DBSCAN method. The reactivity scores of each group were calculated and normalized individually. 
 
-![flow](docs/Figures/Flow.png)
+![flow](docs/Figures/Flow2.png)
 
 ### The dependent programs to run the analysis:
 - graphmap2(https://github.com/lbcb-sci/graphmap2) or minimap2(https://github.com/lh3/minimap2) to align the Nanopore reads to reference.
