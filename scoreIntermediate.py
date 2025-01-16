@@ -141,6 +141,13 @@ def CalculateSHAPEFromBitvector_nan(Bitvector):
     shapescore=Normal_SHAPE(Percentlist)
     return shapescore
 
+def fill_ends(row):
+    first_valid_index = int(row.first_valid_index())
+    last_valid_index = int(row.last_valid_index())
+    row.iloc[:first_valid_index] = 0
+    row.iloc[last_valid_index + 1:] = 0
+    return row
+
 def args():
     """
     Calculate and plot the reactivity scores according to different methods
@@ -205,7 +212,7 @@ if __name__ == "__main__":
 
         # Classify reads using UMAP
         UP = umap(n_components=2)
-        cla_vect=vect.interpolate(limit_area='outside',limit_direction='both',axis=1).fillna(2) # Set the miscalled Bases in the vectors to '2'
+        cla_vect=vect.apply(fill_ends, axis=1).fillna(2) # Set the miscalled Bases in the vectors to '2'
         UP_out=pd.DataFrame(UP.fit_transform(cla_vect),columns = ['UMAP1', 'UMAP2'])
         
         plt.scatter(UP_out['UMAP1'], UP_out['UMAP2'])

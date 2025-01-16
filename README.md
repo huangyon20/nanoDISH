@@ -1,7 +1,7 @@
 # nanoDISH
 ## Deconvolute the RNA intermediates' structure heterogeneity from Nanopore direct RNA sequencing data.
-Nanopore direct RNA sequencing that combined with chemical probing method was used to determine the secondary strucure of long RNA. Using machine learning models and RNA modification information obtained from nanopore sequencing, we developed this pipeline to analyze RNA structural heterogeneity.
-nanoDISH consists of four parts: process the signal data, select reads by their length, obtain the modification profile of each modified reads, classify reads and calculate the SHAPE reactivaty scores. The modification profiles were converted into 0-1-2 bit-vectors and classified using UMAP method. The SHAPE reactivity scores of each group were calculated and normalized individually. 
+Nanopore direct RNA sequencing that integrated with chemical probing method was used to determine the secondary strucure of long RNA. Chemical probing reagents, such as NAI-N3 and Aclm, preferentially modified the open RNA bases and alter the current signals, resulting in miscalled bases or correctly called bases but with current signal outliers compared with unmodified bases. We used machine learning models to obtain the modification status of each bases on reads from the Nanopore sequencing data and developed this pipeline to analyze RNA structural heterogeneity.
+NanoDISH consists of four parts: process the signal data, select reads by their length, obtain the modification profile of each modified reads, classify reads and calculate the reactivaty scores. The modification profiles were converted into 0-1-2 digital vectors and classified using Gaussian Mixture or DBSCAN method. The reactivity scores of each group were calculated and normalized individually. 
 
 ![flow](docs/Figures/Flow.png)
 
@@ -35,16 +35,16 @@ python dataprocessing.py  -r ref.fasta -q unmod.fastq -s unmod_fast5 -d Unmod -n
 
 step 2: intermidiates selection. 
 -------------------------------
-If the ensemble reads are mixed with various intermediates, this step could pick out the reads that belong to the same intermediate. The reads were grouped according to the mapping positions on refenrence. -i: the event file from step 1. -s: the start mapping site. Reads whose 5 terminal digested beyond the start site were excluded. -e: the end mapping site; -b: the allowed bias of end mapping positions. e.g if e=100 and b=20, which means the reads whose end mapping sites ranged in 100-120 belong to one intermediate.  If users want to select all the intermediates that shorter than the specific intermediate at the same time, -m should be used. e.g if s=30,e=100,b=20 and -m, which means the reads whose end mapping position ranged in (30-40,40-60,60-80,80-100,100-120) were specified to 5 intermediate individually.
+If the raw sequencing reads are mixed with various length of RNA intermediates, this step could separate the reads into individual groups which corresponding to intermediates. The reads were grouped according to their mapping positions on refenrence. -i: the event file from step 1. -s: the start mapping site. Reads whose 5 terminal digested beyond the start site were excluded. -e: the end mapping site; -b: the allowed bias of end mapping positions. e.g., if e=100 and b=20, which means the reads whose end mapping sites ranged in 100-120 belong to one intermediate.  If users want to select all the intermediates that shorter than the specific intermediate at the same time, -m should be used. e.g., if s=30,e=100,b=20 and -m, which means the reads whose end mapping position ranged in (30-40,40-60,60-80,80-100,100-120) were specified to 5 intermediates individually.
 
 ```
 python pickIntermediate.py -i Mod/mod.collapsed.event  -g TPP -d Mod/mod_multi -s 30 -e 340 -b 20 -m
 python pickIntermediate.py -i Unmod/Unmod.collapsed.event  -g TPP -d Unmod/Unmod_multi -s 30 -e 340 -b 20 -m
 ```
 
-step3: Predicting modification profiles.
+step3: Making modification profiles.
 --------------------------------------------
-In this step, The event files from both modified and unmodified group were used to predict the modification status of each bases. The output files (*.static and *.Mod_profile in csv format )were written to the path of --Mod_Event. The signal features used in SVM model could be assigned though --columns (the default value is [4,5,6], where 4 represent for Current_mean, 5 for Current_stdv and 6 for Dwell time). The default --kernel is (rbf), the default --gamma is (scale) and the default --nu is (0.01).
+In this step, The event files from both modified and unmodified group were used to obtain the modification status of each bases. The output files (*.static and *.Mod_profile in csv format )were written to the path of --Mod_Event. The signal features used in the SVM model could be assigned though --columns (the default value is [4,5,6], where 4 represent for Current_mean, 5 for Current_stdv and 6 for Dwell time). The default --kernel is (rbf), the default --gamma is (0.01) and the default --nu is (0.01).
 
 ```
 python predictModbase.py -m Mod/mod_multi/TPP_340.event -u Unmod/Unmod_multi/TPP_340.event -l 340 -b 20 
