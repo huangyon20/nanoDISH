@@ -31,8 +31,41 @@ def SVM(testevent,trainevent,poslist,KN,GA,NU,cols):
         else:
             Staticfile[b]=[0,'NULL',Test.shape[0],Train.shape[0]]
     return Staticfile,TestwithPred
+def fill_ends(row):
+    first_valid_index = int(row.first_valid_index())
+    last_valid_index = int(row.last_valid_index())
+    row.iloc[:first_valid_index] = 0
+    row.iloc[last_valid_index + 1:] = 0
+    return row
+def transPredictedEventToMatrix(TestwithPred,poslist): #SVM步骤中产生的profile文件含有信号值为1和-1，miscalled碱基没有信号值，可以将这些值作为表达矩阵，用于reads按照结构的聚类
+    """
+    TestwithPred                -- Test event file with the prediction labels. Generated from SVM
+    poslist                     -- The position list of reference.
+    Translate the event file to vector. the mod bases were set to 1, unmod bases to 0, and indel bases to nan
+    """    
+    readnames=np.unique(TestwithPred['read_name']).tolist()
+    matrix={}
+    print(f'There are {len(readnames)} modified reads mapped on reference and generate the digital vectors ... ')
+    for i in readnames:
+        dfi=TestwithPred[TestwithPred['read_name']==i]
+        unmodpos=dfi[dfi['Predict']==1]['position'].tolist()
+        modpos=dfi[dfi['Predict']==-1]['position'].tolist()
+        matrix[i]=[1 if (k in modpos) else (0 if (k in unmodpos) else np.nan) for k in poslist] 
+    return pd.DataFrame(matrix).T 
 
-
+def transUnmod_EventToMatrix(DMSOevent,poslist):
+    """
+    DMSOevent                -- Test event file with the prediction labels. Generated from SVM
+    poslist                     -- The position list of reference.
+    Translate the event file to vector. the called bases were set to 0, and the indel bases to nan
+    """    
+    matrix = DMSOevent.groupby(by=['read_name']).position.apply(list).to_dict()
+    print(f'There are {len(matrix)} Unmodified reads mapped on reference and generate the digital vectors ...')
+    vect={}
+    for key,value in matrix.items():
+        #if len(value)>len(poslist)*0.8:
+        vect[key]=[0 if (k in value) else np.nan for k in poslist] 
+    return pd.DataFrame(vect).T
 def args():
     """
     predict modification of each bases by comparing the event file from Mod and Unmod group
@@ -56,10 +89,10 @@ if __name__ == "__main__":
     args = args()
 
     if not os.path.exists(args.Mod_Event):
-        print(f'Modified collapsed event file not found: {args.Mod_Event}')
+        print(f'Modified event file not found: {args.Mod_Event}')
         exit()
     if not os.path.exists(args.Unmod_Event):
-        print(f'Unmodified collapsed event file not found: {args.Unmod_Event}')
+        print(f'Unmodified event file not found: {args.Unmod_Event}')
         exit()
     assert args.columns in ([4,5], [4,5,6],[4,6]), "method should be one of [4,5], [4,5,6], [4,6]."
 
@@ -71,10 +104,18 @@ if __name__ == "__main__":
     # predict every bases, add the results to the Mod_event file as a new column
     print(args.columns)
     Staticfile,TestwithPred=SVM(Mod_Event,Unmod_Event,poslist,args.kernel,args.gamma,args.nu,args.columns)
+    #transform the profile to digital vectors,
+    Modvect=transPredictedEventToMatrix(TestwithPred,poslist).apply(fill_ends, axis=1).fillna(2)
+    print('Modified profile vectors generating succeed！')
+    Unmodvect=transUnmod_EventToMatrix(Unmod_Event,poslist).apply(fill_ends, axis=1).fillna(2)
+    print('Unmodified profile vectors generating succeed！')
     # write the results to files
-    Pred_event=args.Mod_Event+'.Mod_Profile'
-    Pred_static=args.Mod_Event+'.static'
-    TestwithPred.to_csv(Pred_event,sep='\t',header=True, index=True)
-    out=pd.DataFrame.from_dict(Staticfile, orient='index',columns=['Modifired_NO.','Kmer','Test_NO.','Train_NO.'])
-    out.to_csv(Pred_static,sep='\t',index=True)
+    Statis_out=pd.DataFrame.from_dict(Staticfile, orient='index',columns=['Modifired_NO.','Kmer','Test_NO.','Train_NO.'])
+    Statis_out.to_csv(args.Mod_Event+'.static',sep='\t',index=True)
+
+    Modvect_out=args.Mod_Event+'.profile.vect'
+    Modvect.to_csv(Modvect_out,sep='\t',header=True, index=True)
+
+    Unmodvect_out=args.Unmod_Event+'.profile.vect'
+    Unmodvect.to_csv(Unmodvect_out,sep='\t',header=True, index=True)
 

@@ -14,25 +14,6 @@ from sklearn.mixture import GaussianMixture
 from sklearn.cluster import DBSCAN
 
 
-def transPredictedEventToMatrix(TestwithPred,poslist): #SVM步骤中产生的profile文件含有信号值为1和-1，miscalled碱基没有信号值，可以将这些值作为表达矩阵，用于reads按照结构的聚类
-    """
-    TestwithPred                -- Test event file with the prediction labels. Generated from SVM
-    poslist                     -- The position list of reference.
-    Translate the event file to vector. the mod bases were set to 1, unmod bases to 0, and indel bases to nan
-    """    
-    readnames=np.unique(TestwithPred['read_name']).tolist()
-    matrix={}
-    b=0
-    print(f'There are {len(readnames)} reads mapped on reference')
-    for i in readnames:
-        b+=1
-        if not (b%1000):
-            print(b)    #显示进度
-        dfi=TestwithPred[TestwithPred['read_name']==i]
-        unmodpos=dfi[dfi['Predict']==1]['position'].tolist()
-        modpos=dfi[dfi['Predict']==-1]['position'].tolist()
-        matrix[i]=[1 if (k in modpos) else (0 if (k in unmodpos) else np.nan) for k in poslist] 
-    return pd.DataFrame(matrix).T 
 
 def get_index(lst=None, item=''):
     return [index for (index,value) in enumerate(lst) if value == item]
@@ -128,34 +109,16 @@ def color_SHAPE(shape_list, cutoff=[0.3, 0.5, 0.7]):
                 color_blocks.append('red')
     return color_blocks
 
-def CalculateSHAPEFromBitvector_nan(Bitvector):
-    Percentlist=[]
-    for i in Bitvector.columns:
-        s=Bitvector[i]
-        if len(s[~np.isnan(s)]) > 0:
-            percent=np.nanmean(s) # ignore the None positions and calculate the mean as the rate
-            Percentlist.append(float("%.3g"%percent))
-        else:
-            Percentlist.append(np.nan)
-        
-    shapescore=Normal_SHAPE(Percentlist)
-    return shapescore
-
-def fill_ends(row):
-    first_valid_index = int(row.first_valid_index())
-    last_valid_index = int(row.last_valid_index())
-    row.iloc[:first_valid_index] = 0
-    row.iloc[last_valid_index + 1:] = 0
-    return row
 
 def args():
     """
     Calculate and plot the reactivity scores according to different methods
     """ 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--Mod_Profile", type=str, required=True,      help='The Mod_Profile from SVM.py. Each bases are labeled with the modification status.')
-    parser.add_argument("-o", "--output",      type=str, required=True,      help='The output reactivity score file.')
-    parser.add_argument("-m", "--method",      type=str, default='mean',     help='The reactivity score calculating methods. mean: calculate the mean score as one single structure; heter: calculate the alternative comformations separately. The default is (mean).')
+    parser.add_argument("-m", "--Mod_vector", type=str, required=True,      help='The Mod_Profile vector file')
+    parser.add_argument("-u", "--Unmod_vector", type=str, required=True,     help='The Unmod_Profile vector file.')
+    parser.add_argument("-o", "--output",      type=str, required=True,      help='The otput reactivity score file.')
+    parser.add_argument("-s", "--method",      type=str, default='mean',     help='The reactivity score calculating methods. mean: calculate the mean score as one single structure; heter: calculate the alternative comformations separately. The default is (mean).')
     parser.add_argument("-l", "--length",      type=int, required=True,      help='The intermidiate length.')
     parser.add_argument("-b", "--bias",        type=int, default=0,          help='The read length bias. Set the same value with pickintermediate.py, if pickintermediate.py be used.')
 
@@ -168,27 +131,33 @@ if __name__ == "__main__":
 
     args = args()
 
-    if not os.path.exists(args.Mod_Profile):
-        print(f'Mod_Profile file not found: {args.Mod_Profile}')
+    if not os.path.exists(args.Mod_vector):
+        print(f'Mod_Profile vector file not found: {args.Mod_vector}')
+        exit()
+    if not os.path.exists(args.Unmod_vector):
+        print(f'Unmod_Profile vector file not found: {args.Unmod_vector}')
         exit()
     assert args.method in ('mean', 'heter'), "method should be one of mean/heter"
 
-    #read in the Mod_Profile
-    infile=pd.read_csv(args.Mod_Profile,sep='\t',index_col=0)
+    #read in the Profile vectors
+    Modvect=pd.read_csv(args.Mod_vector,sep='\t',index_col=0)
+    Unmodvect=pd.read_csv(args.Unmod_vector,sep='\t',index_col=0)
 
     #get the intermidiate length
     poslist=[i for i in range(1,args.length+args.bias+1)]
     
     #calculate the scores according to the methods
+
     if args.method=='mean':
-        rates=[]
-        for i in poslist:
-            temp=infile[infile['position']==i]
-            if temp.shape[0]>=1:
-                pred=temp['Predict']
-                rates.append(np.sum(pred==-1)/temp.shape[0])
-            else:
-                rates.append(np.nan)
+        NAI_one=np.sum(Modvect==1,axis=0)
+        NAI_zero=np.sum(Modvect==0,axis=0)
+        NAI_two=np.sum(Modvect==2,axis=0)
+
+        DMSO_two=np.sum(Unmodvect==2,axis=0)
+        DMSO_zero=np.sum(Unmodvect==0,axis=0)
+
+        delta_rates=list(map(lambda x: x[0]-x[1] if x[0]>x[1] else 0, zip(NAI_two/(NAI_one+NAI_two+NAI_zero),DMSO_two/(DMSO_two+DMSO_zero))))
+        rates=NAI_one/(NAI_one+NAI_zero)+delta_rates
         shapescore=Normal_SHAPE(rates)
         #Plot the PCA and Clustering results into PDF
         plotScore(shapescore,poslist,args.output+'.pdf')
@@ -200,20 +169,9 @@ if __name__ == "__main__":
 
 
     if args.method=='heter':
-        
-        #transfer or read the profile to 0-1-NaN Bitvector
-        if not os.path.exists(args.output+'.vect'):
-            vect=transPredictedEventToMatrix(infile,poslist)
-            vect.to_csv(args.output+'.vect',sep='\t',header=True, index=True)
-            print("The Bitvector was converted!\n")
-        else:
-            vect=pd.read_csv(args.output+'.vect',sep='\t',index_col=0)
-            print("The Bitvector was found!\n")
-
         # Classify reads using UMAP
         UP = umap(n_components=2)
-        cla_vect=vect.apply(fill_ends, axis=1).fillna(2) # Set the miscalled Bases in the vectors to '2'
-        UP_out=pd.DataFrame(UP.fit_transform(cla_vect),columns = ['UMAP1', 'UMAP2'])
+        UP_out=pd.DataFrame(UP.fit_transform(Modvect),columns = ['UMAP1', 'UMAP2'])
         
         plt.scatter(UP_out['UMAP1'], UP_out['UMAP2'])
         plt.savefig(args.output+'.UMAP.pdf')
@@ -240,14 +198,23 @@ if __name__ == "__main__":
             samplelabel={int(k):v for k, v in lists}.keys() 
 
         #Calculate the scores of each cluster
+        DMSO_two=np.sum(Unmodvect==2,axis=0)
+        DMSO_zero=np.sum(Unmodvect==0,axis=0)
+
         cluser_ratio=[]
-        cluser_vect=[]
         cluser_score=[]
         cluser_name=[]
         for i in range(int(N)):
             cluser_ratio.append(cluster_ids.count(i)/len(cluster_ids))
-            cluser_vect.append(vect.iloc[get_index(cluster_ids,i),:])
-            cluser_score.append(CalculateSHAPEFromBitvector_nan(cluser_vect[i]))
+            cluser_vect=Modvect.iloc[get_index(cluster_ids,i),:]
+
+            NAI_one=np.sum(cluser_vect==1,axis=0)
+            NAI_zero=np.sum(cluser_vect==0,axis=0)
+            NAI_two=np.sum(cluser_vect==2,axis=0)
+            delta_rates=list(map(lambda x: x[0]-x[1] if x[0]>x[1] else 0, zip(NAI_two/(NAI_one+NAI_two+NAI_zero),DMSO_two/(DMSO_two+DMSO_zero))))
+            rates=NAI_one/(NAI_one+NAI_zero)+delta_rates
+            shapescore=Normal_SHAPE(rates)            
+            cluser_score.append(shapescore)
             cluser_name.append('Cluster'+str(i+1))
         print("Scores calculate successfully!")
         #Plot the PCA and Clustering results into PDF
